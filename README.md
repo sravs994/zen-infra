@@ -448,45 +448,24 @@ terraform init -backend-config=backend.tfvars
 
 > **Why this pattern?** Terraform's `backend` block is evaluated before any variables are loaded, so `var.aws_region` cannot be used there. The `-backend-config` flag injects the region at init time, keeping region in one place without duplicating it in the backend block.
 
-### 7.2 Update GitHub Organisation Variable
+### 7.2 Set Your GitHub Org as a Repository Variable
 
-In `envs/dev/variables.tf`, update the default value for `github_org`:
+The pipeline reads your GitHub username/org from a **GitHub Actions variable** called `GH_ORG`. You do not need to edit any Terraform or workflow files — just set this variable in your fork's settings.
 
-```hcl
-variable "github_org" {
-  description = "GitHub username or organization"
-  type        = string
-  default     = "YOUR-GITHUB-USERNAME"   # ← change this
-}
-```
+Go to your fork on GitHub:
+**Settings → Secrets and variables → Actions → Variables tab → New repository variable**
 
-Do the same in `envs/qa/variables.tf` and `envs/prod/variables.tf`.
+| Variable Name | Value |
+|---|---|
+| `GH_ORG` | Your GitHub username or organization (e.g. `john-smith`) |
 
-### 7.3 Update the GitHub Actions Workflow
+This is used to build the OIDC trust policy so GitHub Actions in your `zen-pharma-frontend` and `zen-pharma-backend` repos can assume the AWS role. If this variable is missing or wrong, OIDC authentication will fail.
 
-In `.github/workflows/terraform.yml`, update the `github_org` value:
-
-```yaml
-- name: Terraform Plan
-  run: |
-    terraform plan \
-      -var="aws_region=${{ env.AWS_REGION }}" \
-      -var="db_password=${{ secrets.DEV_DB_PASSWORD }}" \
-      -var="jwt_secret=${{ secrets.DEV_JWT_SECRET }}" \
-      -var="github_org=YOUR-GITHUB-USERNAME" \    # ← change this
-      -out=tfplan \
-      -no-color
-```
-
-The `aws_region` var is sourced from the `AWS_REGION` env variable at the top of `terraform.yml` — change it there once to update the region everywhere in CI.
-
-### 7.4 Commit and Push Changes
+### 7.3 Commit and Push Changes
 
 ```bash
 git add envs/dev/backend.tf envs/qa/backend.tf envs/prod/backend.tf
-git add envs/dev/variables.tf envs/qa/variables.tf envs/prod/variables.tf
-git add .github/workflows/terraform.yml
-git commit -m "config: update bucket name and github org for my account"
+git commit -m "config: update backend bucket name for my account"
 git push origin main
 ```
 
@@ -499,7 +478,7 @@ The pipeline needs AWS credentials and application secrets to run Terraform. The
 ### 8.1 Add Repository Secrets
 
 Go to your fork on GitHub:
-**Settings → Secrets and variables → Actions → New repository secret**
+**Settings → Secrets and variables → Actions → Secrets tab → New repository secret**
 
 Add the following secrets:
 
@@ -509,6 +488,17 @@ Add the following secrets:
 | `AWS_SECRET_ACCESS_KEY` | Your IAM user secret access key | AWS authentication for Terraform |
 | `DEV_DB_PASSWORD` | A strong password (min 8 chars) | RDS PostgreSQL master password |
 | `DEV_JWT_SECRET` | A long random string | JWT signing secret for the app |
+
+### 8.2 Add Repository Variable
+
+Switch to the **Variables tab** on the same page:
+**Settings → Secrets and variables → Actions → Variables tab → New repository variable**
+
+| Variable Name | Value | Description |
+|---|---|---|
+| `GH_ORG` | Your GitHub username or org (e.g. `john-smith`) | Used in the OIDC trust policy — must match the org that owns `zen-pharma-frontend` and `zen-pharma-backend` |
+
+> **Important**: If `GH_ORG` is not set, the pipeline will apply an empty value and GitHub Actions OIDC authentication in your app repos will fail with `AccessDenied`.
 
 **Generating a strong random secret:**
 ```bash

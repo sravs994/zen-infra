@@ -17,7 +17,6 @@ variable "jwt_secret" {
 }
 
 variable "github_org" {
-  description = "GitHub username or organization that owns zen-pharma-frontend and zen-pharma-backend (e.g. john-smith)"
+  description = "Your GitHub username or organization that owns zen-pharma-frontend and zen-pharma-backend (e.g. john-smith)"
   type        = string
-  default     = "DPP-2026"
 }
